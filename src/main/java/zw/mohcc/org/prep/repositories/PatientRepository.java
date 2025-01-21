@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import zw.mohcc.org.prep.dto.DemographicDTO;
 import zw.mohcc.org.prep.entities.Patient;
 import zw.mohcc.org.prep.enums.PopulationType;
 
@@ -37,4 +38,31 @@ public interface PatientRepository extends JpaRepository<Patient, String> {
                         row -> ((Long) row[1]).intValue()
                 ));
     }
+
+    @Query("""
+        SELECT new zw.mohcc.org.prep.dto.DemographicDTO(
+            p.sex,
+            p.populationType,
+            CASE
+                WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) < 25 THEN 'Below 25'
+                WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 25 AND 29 THEN '25-29'
+                WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 30 AND 34 THEN '30-34'
+                WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 35 AND 39 THEN '35-39'
+                WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 40 AND 44 THEN '40-44'
+                ELSE '45+'
+            END,
+            COUNT(p)
+        )
+        FROM Patient p
+        GROUP BY p.sex, p.populationType,
+        CASE
+            WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) < 25 THEN 'Below 25'
+            WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 25 AND 29 THEN '25-29'
+            WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 30 AND 34 THEN '30-34'
+            WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 35 AND 39 THEN '35-39'
+            WHEN YEAR(CURRENT_DATE) - YEAR(p.dob) BETWEEN 40 AND 44 THEN '40-44'
+            ELSE '45+'
+        END
+        """)
+    List<DemographicDTO> getPopulationDemographics();
 }

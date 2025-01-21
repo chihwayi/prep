@@ -61,11 +61,14 @@ public class AuthController {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
 
+        // Get the username from the authentication object
+        String username = authentication.getName();
+
         // Add a log statement to check if the token is generated
         System.out.println("Generated JWT Token: " + token);
 
         // Return the JWT token and roles in the response body
-        return ResponseEntity.ok(new JwtResponse(token, roles));
+        return ResponseEntity.ok(new JwtResponse(token, roles, username));
     }
 
     @PostMapping("/register")
