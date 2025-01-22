@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/facilities/**").authenticated()
                         .requestMatchers("/api/config/**").authenticated()
                         .requestMatchers("/api/visits/**").authenticated()
+                        .requestMatchers("/api/reports/**").authenticated()
                         .requestMatchers("/admin/**").hasRole("ADMIN") // Restrict admin routes
                         .requestMatchers("/api/admin/roles").hasRole("ADMIN")
                         .requestMatchers("/api/admin/users").hasRole("ADMIN")

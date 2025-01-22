@@ -52,27 +52,29 @@ public interface VisitRepository extends JpaRepository<Visit, String> {
     List<RetentionDTO> getRetentionByInjectionType();
 
     @Query(value = """
-    SELECT date_trunc('month', v.injection_date) AS month, COUNT(v.id) AS total
-    FROM visit v
-    WHERE v.injection_date BETWEEN :startDate AND :endDate
-    GROUP BY date_trunc('month', v.injection_date)
-    ORDER BY date_trunc('month', v.injection_date)
-    """, nativeQuery = true)
-    List<InjectionTrendDTO> getInjectionTrends(LocalDate startDate, LocalDate endDate);
+        SELECT 
+            YEAR(injection_date) as year,
+            MONTH(injection_date) as month,
+            COUNT(*) as total
+        FROM visit v
+        WHERE injection_date BETWEEN :startDate AND :endDate
+        GROUP BY YEAR(injection_date), MONTH(injection_date)
+        ORDER BY YEAR(injection_date), MONTH(injection_date)
+        """, nativeQuery = true)
+    List<Object[]> getInjectionTrends(LocalDate startDate, LocalDate endDate);
 
-    @Query("""
-        SELECT new zw.mohcc.org.prep.dto.MissingFollowUpDTO(
-            p.patientId,
+    @Query(value = """
+        SELECT 
+            p.patient_id,
             p.sex,
-            p.populationType,
-            MAX(v.injectionDate),
-            DATEDIFF(CURRENT_DATE, MAX(v.injectionDate))
-        )
-        FROM Patient p
-        JOIN p.visits v
-        GROUP BY p.patientId, p.sex, p.populationType
-        HAVING DATEDIFF(CURRENT_DATE, MAX(v.injectionDate)) > 90
-        ORDER BY MAX(v.injectionDate) ASC
-        """)
-    List<MissingFollowUpDTO> getMissingFollowUps();
+            p.population_type,
+            MAX(v.injection_date) as last_injection,
+            DATEDIFF(CURRENT_DATE, MAX(v.injection_date)) as days_since_last
+        FROM patient p
+        JOIN visit v ON p.patient_id = v.patient_id
+        GROUP BY p.patient_id, p.sex, p.population_type
+        HAVING DATEDIFF(CURRENT_DATE, MAX(v.injection_date)) > 90
+        ORDER BY MAX(v.injection_date) ASC
+        """, nativeQuery = true)
+    List<Object[]> getMissingFollowUps();
 }

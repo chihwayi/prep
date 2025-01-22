@@ -1,7 +1,5 @@
 package zw.mohcc.org.prep.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import zw.mohcc.org.prep.enums.PopulationType;
 import zw.mohcc.org.prep.enums.Sex;
 

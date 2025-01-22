@@ -7,8 +7,8 @@ public class InjectionTrendDTO {
     private YearMonth month;
     private Long totalInjections;
 
-    public InjectionTrendDTO(LocalDate month, Long totalInjections) {
-        this.month = YearMonth.from(month);
+    public InjectionTrendDTO(YearMonth month, Long totalInjections) {
+        this.month = month;
         this.totalInjections = totalInjections;
     }
 
