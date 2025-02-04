@@ -1,41 +1,61 @@
 package zw.mohcc.org.prep.dto;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
 
 public class MigrationResult {
-    private int patientsProcessed = 0;
-    private int visitsProcessed = 0;
-    private List<String> errors = new ArrayList<>();
+    private boolean successful;
+    private String message;
+    private int patientsProcessed;
+    private int visitsProcessed;
+    private List<String> errors;
 
-    public void incrementPatientsProcessed() {
-        patientsProcessed++;
+    public MigrationResult() {
+        this.errors = new ArrayList<>();
     }
 
-    public void incrementVisitsProcessed() {
-        visitsProcessed++;
+    // Getters and Setters
+    public boolean isSuccessful() {
+        return successful;
     }
 
-    public void addError(String error) {
-        errors.add(error);
+    public void setSuccessful(boolean successful) {
+        this.successful = successful;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public int getPatientsProcessed() {
         return patientsProcessed;
     }
 
+    public void setPatientsProcessed(int patientsProcessed) {
+        this.patientsProcessed = patientsProcessed;
+    }
+
     public int getVisitsProcessed() {
         return visitsProcessed;
+    }
+
+    public void setVisitsProcessed(int visitsProcessed) {
+        this.visitsProcessed = visitsProcessed;
     }
 
     public List<String> getErrors() {
         return errors;
     }
 
-    public boolean hasErrors() {
-        return !errors.isEmpty();
+    public void setErrors(List<String> errors) {
+        this.errors = errors;
     }
 
-    public void addWarning(String s) {
+    public void addError(String error) {
+        this.errors.add(error);
     }
 }

@@ -14,7 +14,7 @@
 
     <changeSet id="2-load-users" author="chihwayi">
         <loadData
-                file="classpath:db/data/user.csv"
+                file="classpath:db/data/users.csv"
                 tableName="users"
                 separator=";" />
     </changeSet>

@@ -27,31 +27,97 @@ public class ExcelDataMigrationTool {
     @Transactional
     public MigrationResult migrateData(InputStream excelFileStream) {
         MigrationResult result = new MigrationResult();
+        result.setPatientsProcessed(0);
+        result.setVisitsProcessed(0);
 
         try (Workbook workbook = new XSSFWorkbook(excelFileStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
             Map<String, Patient> processedPatients = new HashMap<>();
+            int numberOfSheets = workbook.getNumberOfSheets();
 
-            for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue; // Skip header row
+            if (numberOfSheets == 0) {
+                result.addError("No sheets found in the workbook");
+                return result;
+            }
+
+            // Process each sheet in the workbook
+            for (int sheetIndex = 0; sheetIndex < numberOfSheets; sheetIndex++) {
+                Sheet sheet = workbook.getSheetAt(sheetIndex);
+                String sheetName = sheet.getSheetName();
 
                 try {
-                    processRow(row, processedPatients, result);
+                    processSheet(sheet, processedPatients, result, sheetName);
                 } catch (Exception e) {
-                    result.addError("Error processing row " + row.getRowNum() + ": " + e.getMessage());
+                    result.addError("Failed to process sheet '" + sheetName + "': " + e.getMessage());
                 }
             }
+
+            // Set success status based on processing results
+            result.setSuccessful(result.getPatientsProcessed() > 0 && result.getErrors().isEmpty());
+            result.setMessage(String.format("Processed %d sheets, %d patients and %d visits %s",
+                    numberOfSheets,
+                    result.getPatientsProcessed(),
+                    result.getVisitsProcessed(),
+                    result.getErrors().isEmpty() ? "successfully" : "with some errors"));
+
         } catch (Exception e) {
+            result.setSuccessful(false);
             result.addError("Failed to process Excel file: " + e.getMessage());
+            result.setMessage("Failed to process Excel file");
         }
 
         return result;
     }
 
-    private void processRow(Row row, Map<String, Patient> processedPatients, MigrationResult result) {
-        String prepNumber = getCellValueAsString(row.getCell(0));
+    private void processSheet(Sheet sheet, Map<String, Patient> processedPatients, MigrationResult result, String sheetName) {
+        // Validate sheet structure
+        if (!isValidSheetStructure(sheet)) {
+            result.addError("Sheet '" + sheetName + "' does not have the expected column structure");
+            return;
+        }
 
-        // Check if patient already exists in the database
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) continue; // Skip header row
+
+            try {
+                processRow(row, processedPatients, result, sheetName);
+            } catch (Exception e) {
+                result.addError(String.format("Sheet '%s', Row %d: %s",
+                        sheetName, row.getRowNum() + 1, e.getMessage()));
+            }
+        }
+    }
+
+    private boolean isValidSheetStructure(Sheet sheet) {
+        Row headerRow = sheet.getRow(0);
+        if (headerRow == null) return false;
+
+        // Define expected headers (adjust these based on your actual headers)
+        String[] expectedHeaders = {
+                "ID(PrEP Number)", "DOB", "Sex(M,F)", "Population Type(SW,MSM, TG, AGYW…)",
+                "PrEP Experience Status (Naïve, transitioning OP,  transitioning DVR)",
+                "Injection  date", "Type of Injection",
+                "Active on PrEP-PX,Discontinue-D,Adverse event-AE, Adverse event & Discontinue-AED, Missed visit-MV, Switched-SWD",
+                "Discontinuation reason or Adverse event type", "AE Severity (mild, moderate, severe)"
+        };
+
+        // Check if all expected headers are present
+        for (int i = 0; i < expectedHeaders.length; i++) {
+            Cell cell = headerRow.getCell(i);
+            if (cell == null || !cell.getStringCellValue().trim().equalsIgnoreCase(expectedHeaders[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void processRow(Row row, Map<String, Patient> processedPatients, MigrationResult result, String sheetName) {
+        String prepNumber = getCellValueAsString(row.getCell(0));
+        if (prepNumber == null || prepNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing PrEP number");
+        }
+
+        // Process patient data
         Patient patient = processedPatients.get(prepNumber);
         if (patient == null) {
             patient = patientRepository.findByPrepNumber(prepNumber).orElse(null);
@@ -61,29 +127,32 @@ public class ExcelDataMigrationTool {
                 try {
                     patient = patientRepository.save(patient);
                     processedPatients.put(prepNumber, patient);
-                    result.incrementPatientsProcessed();
+                    result.setPatientsProcessed(result.getPatientsProcessed() + 1);
                 } catch (Exception e) {
-                    result.addError("Failed to save patient with PrEP number " + prepNumber + ": " + e.getMessage());
-                    return;
+                    throw new RuntimeException("Failed to save patient: " + e.getMessage());
                 }
             } else {
                 processedPatients.put(prepNumber, patient);
             }
         }
 
-        // Create and save visit
+        // Process visit data
         Visit visit = createVisit(row, patient);
+        if (visit.getInjectionDate() == null) {
+            throw new IllegalArgumentException("Missing or invalid injection date");
+        }
 
-        // Check if visit is a duplicate
+        // Check for duplicate visits
         if (!visitRepository.existsByInjectionDateAndPatient(visit.getInjectionDate(), visit.getPatient())) {
             try {
                 visitRepository.save(visit);
-                result.incrementVisitsProcessed();
+                result.setVisitsProcessed(result.getVisitsProcessed() + 1);
             } catch (Exception e) {
-                result.addError("Failed to save visit for patient " + prepNumber + ": " + e.getMessage());
+                throw new RuntimeException("Failed to save visit: " + e.getMessage());
             }
         } else {
-            result.addError("Duplicate visit found for patient " + prepNumber + " on date " + visit.getInjectionDate());
+            result.addError(String.format("Sheet '%s', Row %d: Duplicate visit found for patient %s on date %s",
+                    sheetName, row.getRowNum() + 1, prepNumber, visit.getInjectionDate()));
         }
     }
 
